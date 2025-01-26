@@ -2,8 +2,6 @@ import numpy as np
 from tqdm import tqdm
 import torch
 torch.set_default_dtype(torch.float64)
-torch.set_default_device('cuda')
-print("Using GPU")
 
 """
 References:
@@ -17,24 +15,29 @@ References:
 """
 
 class NE:
-    def __init__(self,
-                 L,  # Domain Size
-                 N,  # Number of X steps
-                 h,  # Delta t
-                 u_0,  # Initial U(x,t)
-                 r,  # Control parameter
-                 v, # Damping constant
-                 precompute_step = None # Damping constant
-                 ):
+    def __init__(self, L, N, h, u_0, r, v, precompute_step = None, device = 'cpu',):
+        """
+        Initialize Nikolaevsky equation dynamics.
+            Parameters:
+                L (float): The size of dynamics domain.
+                N (int): Number of DOF in the space axis.
+                h (float): The size of time stepping delta (delta t).
+                u_0 (numpy.ndarray): Initial value for each dynamics with shape of (BATCH_SIZE, N).
+                r (numpy.ndarray): Control parameter for each dynamics with shape of (BATCH_SIZE, ).
+                v (float): Damping constant for all the dynamics.
+                precompute_step (int): Precompute step when initializing the dynamics.
+                device (string): Device placement for the computation.
+        """
         self.L = L
         self.N = N
         self.h = h
         self.t = 0
-        u_0 = torch.tensor(u_0)
+        self.device = device
+        u_0 = torch.tensor(u_0, device=device)
         self.u_hat = torch.fft.rfft(u_0)
 
         # Wavenumbers & derivative operator for FFT
-        self.wavenumbers = torch.tensor(np.fft.rfftfreq(n=self.N, d=L / (self.N * 2 * np.pi)))
+        self.wavenumbers = torch.tensor(np.fft.rfftfreq(n=self.N, d=L / (self.N * 2 * np.pi)), device=self.device)
         self.wavenumbers = self.wavenumbers.repeat(u_0.shape[0],1)
         self.diagonal_wavenumbers = torch.diag_embed(self.wavenumbers)
         self.derivative_operator = 1j * self.wavenumbers
@@ -50,7 +53,7 @@ class NE:
             (torch.diag_embed(torch.fft.irfft(self.u_hat, n=self.N)) @ torch.fft.irfft(w, n=self.N, axis=1)), axis=1)) * self.filter[:, :, None]
 
         # Linear constant for both NE and fundamental matrix
-        r = torch.tensor(r).repeat(self.derivative_operator.shape[1],1).permute(1,0)
+        r = torch.tensor(r, device=self.device).repeat(self.derivative_operator.shape[1],1).permute(1,0)
         self.c = -(self.derivative_operator**2) * (r-(1+self.derivative_operator**2)**2) - v
         print("using LSA damping")
 
@@ -99,8 +102,7 @@ class NE:
             Returns:
                 res (torch.Tensor): Array of deviations vectors at next time step.
         """
-        W = torch.fft.rfft(W, axis=1)
-        W1 = W
+        W1 = torch.fft.rfft(W, axis=1)
 
         N_W1 = self.fn(W1)
         W2 = self.diagonal_exp_term_half @ W1 + self.diagonal_k @ N_W1
@@ -144,13 +146,13 @@ class NE:
         """
         Forward the system for n_steps with ETDRK4 method.
             Parameters:
-                n_steps (int): number of simulation steps to take.
-                keep_traj (bool): return or not the system trajectory.
+                n_steps (int): Number of simulation steps to take.
+                keep_traj (bool): Return or not the system trajectory.
             Returns:
-                traj (torch.Tensor): trajectory of the system of dimension (n_steps + 1, N) if keep_traj.
+                traj (torch.Tensor): Trajectory of the system with shape of (BATCH_SIZE, n_steps + 1, N) if keep_traj.
         """
         if keep_traj:
-            traj = torch.zeros((self.u_hat.shape[0], n_steps + 1, self.N))
+            traj = torch.zeros((self.u_hat.shape[0], n_steps + 1, self.N), device=self.device)
             traj[:, 0, :] = torch.fft.irfft(self.u_hat, n=self.N)
             for i in tqdm(range(1, n_steps + 1)):
                 self()
@@ -160,13 +162,13 @@ class NE:
             for _ in tqdm(range(n_steps)):
                 self()
 
-    def LCE(self, p, n_forward, n_compute):
+    def LCE(self, p, n_forward, n_compute, qr_mode='reduced'):
         """
         Compute LCE (Lyapunov Characteristic Exponent).
             Parameters:
                 p (int): Number of LCE to compute.
-                n_forward (int): number of time steps before starting the computation of LCE.
-                n_compute (int): number of steps to compute the LCE.
+                n_forward (int): Number of time steps before starting the computation of LCE.
+                n_compute (int): Number of steps to compute the LCE.
             Returns:
                 LCE (torch.Tensor): Lyapunov Characteristic Exponents.
                 history (torch.Tensor): Evolution of LCE during the computation.
@@ -175,21 +177,28 @@ class NE:
         self.forward(n_forward, False)
 
         # Computation of LCE
-        W = torch.eye(self.N).unsqueeze(0).repeat(self.u_hat.shape[0],1,1)[:, :, :p]
-        LCE = torch.zeros(self.u_hat.shape[0], p)
+        W = torch.eye(self.N, device=self.device).unsqueeze(0).repeat(self.u_hat.shape[0],1,1)[:, :, :p]
+        LCE = torch.zeros((self.u_hat.shape[0], p), device=self.device)
 
-        history = torch.zeros((self.u_hat.shape[0], n_compute, p))
+        history = torch.zeros((self.u_hat.shape[0], n_compute, p), device=self.device)
         for i in tqdm(range(1, n_compute + 1)):
             W = self.next_LTM(W)
             self()
-            W, R = torch.linalg.qr(W)
+            W, R = torch.linalg.qr(W, mode=qr_mode)
             for j in range(p):
                 LCE[:, j] += torch.log(torch.abs(R[:, j, j]))
                 history[:, i - 1, j] = LCE[:, j] / (i * self.h)
         LCE = LCE / (n_compute * self.h)
         return LCE, history
 
-    def one_step(self, u):
+    def _one_step(self, u):
+        """
+        Compute one step from given condition.
+            Parameters:
+                u (torch.Tensor): The initial condition with shape of (BATCH_SIZE, N).
+            Returns:
+                u (torch.Tensor): The evolved condition after 1 step.
+        """
         u_hat = torch.fft.rfft(u)
 
         f_un_hat = self.f(u)
@@ -206,4 +215,5 @@ class NE:
 
         f_cn_hat = self.f(cn)
         u_hat = u_hat * self.exp_term + f_un_hat * self.f1 + (f_an_hat + f_bn_hat) * self.f2 + f_cn_hat * self.f3
-        return torch.fft.irfft(u_hat, n=self.N)
+        u = torch.fft.irfft(u_hat, n=self.N)
+        return u
