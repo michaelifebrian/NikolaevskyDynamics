@@ -1,6 +1,6 @@
 ### Nikolaevsky Equation Solver with Lyapunov Characteristic Exponent (LCE) Calculation
 
-This Python implementation provides a solver for the Nikolaevsky Equation (NE) using the **Exponential Time Differencing Runge-Kutta (ETDRK4)** method. It also supports the calculation of **Lyapunov Characteristic Exponents (LCEs)** to analyze the chaotic behavior of dynamical systems. The implementation is optimized for performance using **PyTorch**.
+This Python implementation is used for research purpose and provides a solver for the Nikolaevsky Equation (NE) using the **Exponential Time Differencing Runge-Kutta (ETDRK4)** method. It also supports the calculation of **Lyapunov Characteristic Exponents (LCEs)** to analyze the chaotic behavior of dynamical systems. The implementation is optimized for performance using **PyTorch**.
 
 ---
 
@@ -107,4 +107,4 @@ This implementation is inspired by the following works:
 - [ETDRK4 Method](https://www.sciencedirect.com/science/article/abs/pii/S0021999102969950)
 - [Kuramoto-Sivashinsky Solver](https://github.com/ThomasSavary08/Kuramoto-Sivashinsky-ETDRK4)
 
-For further details, explore the repository and the cited works.
+For further details, explore the repository, usage example, and the cited works.
