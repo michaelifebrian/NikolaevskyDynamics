@@ -12,6 +12,7 @@ References:
     https://github.com/ThomasSavary08/Lyapynov
     https://github.com/ThomasSavary08/Kuramoto-Sivashinsky-ETDRK4
     https://github.com/Ceyron/machine-learning-and-simulation/blob/main/english/fft_and_spectral_methods/ks_solver_etd_and_etdrk2_in_jax.ipynb
+    https://math.iisc.ac.in/~rangaraj/wp-content/uploads/2020/07/jiisc_lyap.pdf
 """
 
 class NE:
@@ -19,14 +20,14 @@ class NE:
         """
         Initialize Nikolaevsky equation dynamics.
             Parameters:
-                L (float): The size of dynamics domain.
-                N (int): Number of DOF in the space axis.
-                h (float): The size of time stepping delta (delta t).
-                u_0 (numpy.ndarray): Initial value for each dynamics with shape of (BATCH_SIZE, N).
-                r (numpy.ndarray): Control parameter for each dynamics with shape of (BATCH_SIZE, ).
-                v (float): Damping constant for all the dynamics.
-                precompute_step (int): Precompute step when initializing the dynamics.
-                device (string): Device placement for the computation.
+                L (float): Size of the spatial domain.
+                N (int): Number of degrees of freedom (spatial discretization points).
+                h (float): Time step size for the simulation.
+                u_0 (numpy.ndarray): Initial conditions for the dynamics with shape (BATCH_SIZE, N).
+                r (numpy.ndarray): Control parameter with shape (BATCH_SIZE,).
+                v (float): Damping constant.
+                precompute_step (int, optional): Number of precomputed steps before starting the dynamics.
+                device (str, optional): Compute device ('cpu' or 'cuda').
         """
         self.L = L
         self.N = N
@@ -96,7 +97,7 @@ class NE:
 
     def next_LTM(self, W):
         """
-        Compute the state of a deviation vectors after one time step using ETDRK4 method.
+        Computes the state of deviation vectors (Linear Tangent Map) after one time step.
             Parameters:
                 W (torch.Tensor): Array of deviations vectors.
             Returns:
@@ -169,8 +170,9 @@ class NE:
                 p (int): Number of LCE to compute.
                 n_forward (int): Number of time steps before starting the computation of LCE.
                 n_compute (int): Number of steps to compute the LCE.
+                qr_mode (str, optional): QR decomposition mode ('reduced' or 'complete').
             Returns:
-                LCE (torch.Tensor): Lyapunov Characteristic Exponents.
+                LCE (torch.Tensor): Computed Lyapunov exponents of shape (BATCH_SIZE, p).
                 history (torch.Tensor): Evolution of LCE during the computation.
         """
         # Forward the system before the computation of LCE
