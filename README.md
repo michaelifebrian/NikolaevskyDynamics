@@ -25,7 +25,7 @@ NE(L, N, h, u_0, r, v, precompute_step=None, device='cpu')
 - `h (float)`: Time step size for the simulation.
 - `u_0 (numpy.ndarray)`: Initial conditions for the dynamics with shape `(BATCH_SIZE, N)`.
 - `r (numpy.ndarray)`: Control parameter with shape `(BATCH_SIZE,)`.
-- `v (float)`: Damping constant.
+- `v (numpy.ndarray)`: Damping constant with shape `(BATCH_SIZE,)`.
 - `precompute_step (int, optional)`: Number of precomputed steps before starting the dynamics.
 - `device (str, optional)`: Compute device (`'cpu'` or `'cuda'`).
 
@@ -41,12 +41,13 @@ NE(L, N, h, u_0, r, v, precompute_step=None, device='cpu')
 2. **`__call__()`**  
    Advances the system by one time step using ETDRK4. Automatically updates the state of the system.
 
-3. **`LCE(p, n_forward, n_compute, qr_mode='reduced')`**  
+3. **`LCE(p, n_forward, n_compute, qr_mode='reduced', keep_his=False)`**  
    Computes the Lyapunov Characteristic Exponents (LCEs).
    - `p (int)`: Number of LCEs to compute.
    - `n_forward (int)`: Number of steps to evolve the system before starting LCE calculation.
    - `n_compute (int)`: Number of steps for LCE computation.
    - `qr_mode (str, optional)`: QR decomposition mode (`'reduced'` or `'complete'`).
+   - `keep_his (bool, optional)`: If `True`, returns the history.
    - **Returns**:  
      - `LCE (torch.Tensor)`: Computed Lyapunov exponents of shape `(BATCH_SIZE, p)`.  
      - `history (torch.Tensor)`: Evolution of LCE values over the computation.
