@@ -76,7 +76,7 @@ NE(L, N, h, u_0, r, v, precompute_step=None, device='cpu')
    r = np.linspace(0.0, 0.5, 100)    # Control parameter
    u_0 = np.random.randn(N_DOF)
    u_0 = np.tile(u_0, (len(r),1)) # Initial condition for 10 trajectories
-   v = 0.15                       # Damping constant
+   v = np.linspace(0.15, 0.15, 100) # Damping constant
 
    solver = NE(L=L, N=N_DOF, h=h, u_0=u_0, r=r, v=v, precompute_step=round(1000 / DT), device='cuda')
    ```
