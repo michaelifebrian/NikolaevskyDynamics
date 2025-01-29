@@ -56,6 +56,7 @@ class NE:
 
         # Linear constant for both NE and fundamental matrix
         r = torch.tensor(r, device=self.device).repeat(self.derivative_operator.shape[1],1).permute(1,0)
+        v = torch.tensor(v, device=self.device).repeat(self.derivative_operator.shape[1],1).permute(1,0)
         self.c = -(self.derivative_operator**2) * (r-(1+self.derivative_operator**2)**2) - v
         print("using LSA damping")
 
@@ -164,7 +165,7 @@ class NE:
             for _ in tqdm(range(n_steps)):
                 self()
 
-    def LCE(self, p, n_forward, n_compute, qr_mode='reduced'):
+    def LCE(self, p, n_forward, n_compute, qr_mode='reduced', keep_his=False):
         """
         Compute LCE (Lyapunov Characteristic Exponent).
             Parameters:
@@ -182,17 +183,21 @@ class NE:
         # Computation of LCE
         W = torch.eye(self.N, device=self.device).unsqueeze(0).repeat(self.u_hat.shape[0],1,1)[:, :, :p]
         LCE = torch.zeros((self.u_hat.shape[0], p), device=self.device)
-
-        history = torch.zeros((self.u_hat.shape[0], n_compute, p), device=self.device)
+        if keep_his:
+            history = torch.zeros((self.u_hat.shape[0], n_compute, p), device=self.device)
         for i in tqdm(range(1, n_compute + 1)):
             W = self.next_LTM(W)
             self()
             W, R = torch.linalg.qr(W, mode=qr_mode)
             for j in range(p):
                 LCE[:, j] += torch.log(torch.abs(R[:, j, j]))
-                history[:, i - 1, j] = LCE[:, j] / (i * self.h)
+                if keep_his:
+                    history[:, i - 1, j] = LCE[:, j] / (i * self.h)
         LCE = LCE / (n_compute * self.h)
-        return LCE, history
+        if keep_his:
+            return LCE, history
+        else:
+            return LCE
 
     def _one_step(self, u):
         """
