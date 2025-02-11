@@ -188,11 +188,13 @@ class NE:
         for i in tqdm(range(1, n_compute + 1)):
             W = self.next_LTM(W)
             self()
-            W, R = torch.linalg.qr(W, mode=qr_mode)
-            for j in range(p):
-                LCE[:, j] += torch.log(torch.abs(R[:, j, j]))
-                if keep_his:
-                    history[:, i - 1, j] = LCE[:, j] / (i * self.h)
+            if keep_his:
+                Q, R = torch.linalg.qr(W, mode=qr_mode)
+                for j in range(p):
+                    history[:, i - 1, j] = torch.log(torch.abs(R[:, j, j])) / (i * self.h)
+        Q, R = torch.linalg.qr(W, mode=qr_mode)
+        for j in range(p):
+            LCE[:, j] = torch.log(torch.abs(R[:, j, j]))
         LCE = LCE / (n_compute * self.h)
         if keep_his:
             return LCE, history
