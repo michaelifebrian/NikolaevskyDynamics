@@ -16,7 +16,7 @@ References:
 """
 
 class NE:
-    def __init__(self, L, N, h, u_0, r, v, precompute_step = None, device = 'cpu',):
+    def __init__(self, L, N, h, u_0, r, v, precompute_step = None, device = 'cpu', threshold = 1e-5):
         """
         Initialize Nikolaevsky equation dynamics.
             Parameters:
@@ -65,7 +65,7 @@ class NE:
         self.exp_term = torch.exp(self.c * self.h)
         self.diagonal_exp_term_half = torch.diag_embed(self.exp_term_half)
         self.diagonal_exp_term = torch.diag_embed(self.exp_term)
-        self.threshold = 1e-34
+        self.threshold = threshold
         self.k = torch.where(
             abs(self.c) <= self.threshold,
             h / 2,
