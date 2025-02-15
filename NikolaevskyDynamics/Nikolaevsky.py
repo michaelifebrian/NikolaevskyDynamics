@@ -16,7 +16,7 @@ References:
 """
 
 class NE:
-    def __init__(self, L, N, h, u_0, r, v, precompute_step = None, device = 'cpu', threshold = 1e-5):
+    def __init__(self, L, N, h, u_0, r, v, precompute_step = None, device = 'cpu', threshold = 1e-3):
         """
         Initialize Nikolaevsky equation dynamics.
             Parameters:
@@ -28,6 +28,7 @@ class NE:
                 v (float): Damping constant.
                 precompute_step (int, optional): Number of precomputed steps before starting the dynamics.
                 device (str, optional): Compute device ('cpu' or 'cuda').
+                r (float, optional): Threshold limit as c value approaches zero.
         """
         self.L = L
         self.N = N
