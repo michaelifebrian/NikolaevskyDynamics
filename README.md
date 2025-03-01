@@ -17,7 +17,7 @@ This class encapsulates the dynamics of the Nikolaevsky Equation (NE) with the a
 
 ##### **Initialization**
 ```python
-NE(L, N, h, u_0, r, v, precompute_step=None, device='cpu')
+NE(L, N, h, u_0, r, v, precompute_step=None, device='cpu', threshold=1e-3)
 ```
 **Parameters**:
 - `L (float)`: Size of the spatial domain.
@@ -28,6 +28,7 @@ NE(L, N, h, u_0, r, v, precompute_step=None, device='cpu')
 - `v (numpy.ndarray)`: Damping constant with shape `(BATCH_SIZE,)`.
 - `precompute_step (int, optional)`: Number of precomputed steps before starting the dynamics.
 - `device (str, optional)`: Compute device (`'cpu'` or `'cuda'`).
+- `threshold (float, optional)`: Threshold number as divisor approaches 0.
 
 ---
 
@@ -75,25 +76,36 @@ NE(L, N, h, u_0, r, v, precompute_step=None, device='cpu')
    h = 0.05   # Time step size
    r = np.linspace(0.0, 0.5, 100)    # Control parameter
    u_0 = np.random.randn(N_DOF)
-   u_0 = np.tile(u_0, (len(r),1)) # Initial condition for 10 trajectories
+   u_0 = np.tile(u_0, (len(r),1)) # Initial condition for 100 trajectories
    v = np.linspace(0.15, 0.15, 100) # Damping constant
 
    solver = NE(L=L, N=N_DOF, h=h, u_0=u_0, r=r, v=v, precompute_step=round(1000 / DT), device='cuda')
    ```
-
-2. **Run the Dynamics**:
+   This solver compute trajectory in batches, make sure the `u_0`, `r`, and `v` was arranged in batched dimension at the first axis.
+   For example:
+   ```python
+   r = np.aray([0, 0.1, 0.2, 0.3])
+   v = np.aray([0, 0.05, 0.1, 0.15])
+   # With r and v above, the number of batchsize is 4
+   u_0 = np.random.randn(N_DOF) # Initialize random intial condition
+   u_0 = np.tile(u_0, (len(r),1)) # Repeat the initial condition for len(r) times.
+   ```
+   With parameter above, the solver `forward` method will output a batched trajectory with shape `(batchsize, n_steps+1, N)`, where the first batch containing trajectory with `r=0 v=0`, the second batch contain trajectory with `r=0.1 v=0.05`, and so on.
+   
+3. **Run the Dynamics**:
    ```python
    trajectory = solver.forward(n_steps=round(2000 / DT), keep_traj=True)
    ```
 
-3. **Compute Lyapunov Exponents**:
+4. **Compute Lyapunov Exponents**:
    ```python
    p = 10  # Number of exponents
    LCE, history = solver.LCE(p=p, n_forward=round(500 / DT), n_compute=round(1500 / DT))
    print("Lyapunov Exponents:", LCE)
    ```
+   The LCE solver also use batched computation and will output a batched LCE with shape of `(batch_size, p)`
 
-4. **Access Single-Step Evolution**:
+5. **Access Single-Step Evolution**:
    ```python
    evolved_state = solver._one_step(u_0)
    ```
